@@ -68,7 +68,7 @@
   </div>
 
   <button id="voiceBtn">🎤 Hold to Speak</button>
-  <div id="langNote">(Click/tap again to switch input between English & Spanish)</div>
+  <div id="langNote">(Click again to switch between English and Spanish)</div>
 
   <script>
     const voiceBtn = document.getElementById("voiceBtn");
@@ -83,7 +83,6 @@
     voiceBtn.addEventListener("touchstart", startListening);
     voiceBtn.addEventListener("touchend", stopListening);
 
-    // Toggle input/output language on click
     voiceBtn.addEventListener("click", () => {
       inputLang = inputLang === "en-US" ? "es-ES" : "en-US";
     });
@@ -153,29 +152,42 @@
 
       const voices = synth.getVoices();
 
-      // Best native voice logic — prefer non-cloud voices
-      let preferredVoice = voices.find(v =>
-        v.lang === targetLang &&
-        !v.name.toLowerCase().includes("google") &&
-        !v.name.toLowerCase().includes("microsoft")
-      );
+      // Voice priorities by language
+      const spanishVoices = ["Lucia", "Paulina", "Monica", "Jorge"];
+      const englishVoices = ["Samantha", "Karen", "Daniel"];
 
-      // Fallback to any voice that matches
-      if (!preferredVoice) {
-        preferredVoice = voices.find(v => v.lang.startsWith(targetLang.split("-")[0]));
+      let voice;
+
+      if (targetLang === "es-ES") {
+        voice = voices.find(v => spanishVoices.includes(v.name));
+        if (!voice) {
+          voice = voices.find(v => v.lang === "es-ES");
+        }
+        if (!voice) {
+          voice = voices.find(v => v.lang.startsWith("es"));
+        }
+      } else {
+        voice = voices.find(v => englishVoices.includes(v.name));
+        if (!voice) {
+          voice = voices.find(v => v.lang === "en-US");
+        }
+        if (!voice) {
+          voice = voices.find(v => v.lang.startsWith("en"));
+        }
       }
 
-      if (preferredVoice) {
-        utter.voice = preferredVoice;
+      if (voice) {
+        utter.voice = voice;
+        console.log("✅ Speaking with:", voice.name);
       } else {
-        console.warn("⚠️ No preferred voice found for", targetLang);
+        console.warn("⚠️ No suitable voice found for:", targetLang);
       }
 
       synth.cancel();
       synth.speak(utter);
     }
 
-    // preload voices to make sure they're ready
+    // preload voices
     window.speechSynthesis.onvoiceschanged = () => {};
   </script>
 </body>
