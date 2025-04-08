@@ -68,7 +68,7 @@
   </div>
 
   <button id="voiceBtn">🎤 Hold to Speak</button>
-  <div id="langNote">(Tap/Click again to switch between English and Spanish)</div>
+  <div id="langNote">(Click/tap again to switch input between English & Spanish)</div>
 
   <script>
     const voiceBtn = document.getElementById("voiceBtn");
@@ -77,7 +77,6 @@
 
     let recognition;
     let inputLang = "en-US";
-    let outputLang = "es";
 
     voiceBtn.addEventListener("mousedown", startListening);
     voiceBtn.addEventListener("mouseup", stopListening);
@@ -86,13 +85,7 @@
 
     // Toggle input/output language on click
     voiceBtn.addEventListener("click", () => {
-      if (inputLang === "en-US") {
-        inputLang = "es-ES";
-        outputLang = "en";
-      } else {
-        inputLang = "en-US";
-        outputLang = "es";
-      }
+      inputLang = inputLang === "en-US" ? "es-ES" : "en-US";
     });
 
     function startListening() {
@@ -160,24 +153,29 @@
 
       const voices = synth.getVoices();
 
-      // Try to get a natural-sounding voice
-      const nativeVoice = voices.find(v =>
+      // Best native voice logic — prefer non-cloud voices
+      let preferredVoice = voices.find(v =>
         v.lang === targetLang &&
         !v.name.toLowerCase().includes("google") &&
         !v.name.toLowerCase().includes("microsoft")
       );
 
-      const fallbackVoice = voices.find(v =>
-        v.lang.startsWith(targetLang.split("-")[0])
-      );
+      // Fallback to any voice that matches
+      if (!preferredVoice) {
+        preferredVoice = voices.find(v => v.lang.startsWith(targetLang.split("-")[0]));
+      }
 
-      utter.voice = nativeVoice || fallbackVoice || null;
+      if (preferredVoice) {
+        utter.voice = preferredVoice;
+      } else {
+        console.warn("⚠️ No preferred voice found for", targetLang);
+      }
 
       synth.cancel();
       synth.speak(utter);
     }
 
-    // preload voices
+    // preload voices to make sure they're ready
     window.speechSynthesis.onvoiceschanged = () => {};
   </script>
 </body>
