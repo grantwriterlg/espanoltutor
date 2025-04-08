@@ -51,10 +51,16 @@
     #voiceBtn.recording {
       background: #d32f2f;
     }
+
+    #langNote {
+      font-size: 13px;
+      color: #444;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <h1>🎙️ Live English ↔ Español Translator</h1>
+  <h1>🎙️ English ↔ Español Translator</h1>
 
   <div id="output">
     <div class="text-block" id="originalText"><strong>You said:</strong> <em>...</em></div>
@@ -62,6 +68,7 @@
   </div>
 
   <button id="voiceBtn">🎤 Hold to Speak</button>
+  <div id="langNote">(Tap/Click again to switch between English and Spanish)</div>
 
   <script>
     const voiceBtn = document.getElementById("voiceBtn");
@@ -76,6 +83,17 @@
     voiceBtn.addEventListener("mouseup", stopListening);
     voiceBtn.addEventListener("touchstart", startListening);
     voiceBtn.addEventListener("touchend", stopListening);
+
+    // Toggle input/output language on click
+    voiceBtn.addEventListener("click", () => {
+      if (inputLang === "en-US") {
+        inputLang = "es-ES";
+        outputLang = "en";
+      } else {
+        inputLang = "en-US";
+        outputLang = "es";
+      }
+    });
 
     function startListening() {
       recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -137,28 +155,30 @@
     function speak(text) {
       const synth = window.speechSynthesis;
       const utter = new SpeechSynthesisUtterance(text);
-
-      // Swap target language for speaking
-      utter.lang = inputLang === "en-US" ? "es-ES" : "en-US";
+      const targetLang = inputLang === "en-US" ? "es-ES" : "en-US";
+      utter.lang = targetLang;
 
       const voices = synth.getVoices();
-      const match = voices.find(v => v.lang === utter.lang || v.lang.startsWith(utter.lang.split("-")[0]));
-      if (match) utter.voice = match;
+
+      // Try to get a natural-sounding voice
+      const nativeVoice = voices.find(v =>
+        v.lang === targetLang &&
+        !v.name.toLowerCase().includes("google") &&
+        !v.name.toLowerCase().includes("microsoft")
+      );
+
+      const fallbackVoice = voices.find(v =>
+        v.lang.startsWith(targetLang.split("-")[0])
+      );
+
+      utter.voice = nativeVoice || fallbackVoice || null;
 
       synth.cancel();
       synth.speak(utter);
     }
 
-    // Swap input/output language each time
-    voiceBtn.addEventListener("click", () => {
-      if (inputLang === "en-US") {
-        inputLang = "es-ES";
-        outputLang = "en";
-      } else {
-        inputLang = "en-US";
-        outputLang = "es";
-      }
-    });
+    // preload voices
+    window.speechSynthesis.onvoiceschanged = () => {};
   </script>
 </body>
 </html>
