@@ -1,115 +1,164 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Ayudante de Tareas</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Live Voice Translator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-      background-color: #f4f4f4;
-    }
-    #chat {
-      max-width: 400px;
-      margin: auto;
-      padding: 15px;
-      border: 2px solid #002855;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    #messages {
-      height: 320px;
-      overflow-y: auto;
-      border-bottom: 1px solid #ccc;
-      padding: 10px;
-      text-align: left;
-      background: #fff;
+      background: #f9f9f9;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      align-items: center;
+      padding: 40px 20px;
     }
-    .message {
-      max-width: 80%;
-      padding: 8px 12px;
+
+    h1 {
+      color: #002855;
+      margin-bottom: 20px;
+    }
+
+    #output {
+      background: white;
+      border: 2px solid #002855;
       border-radius: 12px;
-      line-height: 1.4;
+      padding: 20px;
+      max-width: 500px;
+      width: 100%;
+      text-align: left;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
     }
-    .user {
-      align-self: flex-start;
-      background-color: #e1f5fe;
+
+    .text-block {
+      margin-bottom: 12px;
+      font-size: 16px;
+      line-height: 1.5;
     }
-    .ai {
-      align-self: flex-end;
-      background-color: #fff3e0;
-    }
-    input[type="text"] {
-      width: 75%;
-      padding: 10px;
-      margin: 5px 0;
-      border: 1px solid #002855;
-      border-radius: 4px;
-    }
-    button {
-      padding: 10px 14px;
-      background: #ffb300;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
+
+    #voiceBtn {
+      padding: 14px 22px;
+      font-size: 16px;
       font-weight: bold;
+      color: white;
+      background: #4caf50;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
     }
-    button:hover {
-      background: #cc8c00;
+
+    #voiceBtn.recording {
+      background: #d32f2f;
     }
   </style>
 </head>
 <body>
-  <div id="chat">
-    <div id="messages"></div>
-    <input type="text" id="userInput" placeholder="Haz una pregunta sobre tu tarea..."><br>
-    <button onclick="sendMessage()">Enviar</button>
+  <h1>🎙️ Live English ↔ Español Translator</h1>
+
+  <div id="output">
+    <div class="text-block" id="originalText"><strong>You said:</strong> <em>...</em></div>
+    <div class="text-block" id="translatedText"><strong>Translation:</strong> <em>...</em></div>
   </div>
 
+  <button id="voiceBtn">🎤 Hold to Speak</button>
+
   <script>
-    async function sendMessage() {
-      const userInput = document.getElementById("userInput").value.trim();
-      const messages = document.getElementById("messages");
+    const voiceBtn = document.getElementById("voiceBtn");
+    const originalEl = document.getElementById("originalText");
+    const translatedEl = document.getElementById("translatedText");
 
-      if (!userInput) return;
+    let recognition;
+    let inputLang = "en-US";
+    let outputLang = "es";
 
-      const userMsg = document.createElement("div");
-      userMsg.className = "message user";
-      userMsg.textContent = userInput;
-      messages.appendChild(userMsg);
-      document.getElementById("userInput").value = "";
+    voiceBtn.addEventListener("mousedown", startListening);
+    voiceBtn.addEventListener("mouseup", stopListening);
+    voiceBtn.addEventListener("touchstart", startListening);
+    voiceBtn.addEventListener("touchend", stopListening);
 
+    function startListening() {
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = inputLang;
+      recognition.interimResults = false;
+
+      voiceBtn.classList.add("recording");
+
+      recognition.onresult = async function (event) {
+        const spoken = event.results[0][0].transcript;
+        originalEl.innerHTML = `<strong>You said:</strong> <em>${spoken}</em>`;
+
+        const translated = await translateText(spoken);
+        translatedEl.innerHTML = `<strong>Translation:</strong> <em>${translated}</em>`;
+        speak(translated);
+      };
+
+      recognition.onerror = function (event) {
+        originalEl.innerHTML = `<strong>Error:</strong> ${event.error}`;
+        translatedEl.innerHTML = "";
+      };
+
+      recognition.start();
+    }
+
+    function stopListening() {
+      if (recognition) {
+        recognition.stop();
+        voiceBtn.classList.remove("recording");
+      }
+    }
+
+    async function translateText(text) {
       try {
         const response = await fetch("https://sweet-jumpy-broker.glitch.me/homework", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ message: "Responde en español: " + userInput })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: "system",
+                content: "You are a translation assistant. If the text is in English, translate it to Spanish. If it's in Spanish, translate it to English. Just reply with the translation only."
+              },
+              {
+                role: "user",
+                content: text
+              }
+            ]
+          })
         });
 
         const data = await response.json();
-
-        const aiMsg = document.createElement("div");
-        aiMsg.className = "message ai";
-        aiMsg.textContent = data.reply;
-        messages.appendChild(aiMsg);
-        messages.scrollTop = messages.scrollHeight;
+        return data.reply;
       } catch (err) {
-        console.error("Error:", err);
-        const errMsg = document.createElement("div");
-        errMsg.className = "message ai";
-        errMsg.textContent = "Lo siento, algo salió mal. Inténtalo de nuevo.";
-        messages.appendChild(errMsg);
+        return "Translation failed. Try again.";
       }
     }
+
+    function speak(text) {
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(text);
+
+      // Swap target language for speaking
+      utter.lang = inputLang === "en-US" ? "es-ES" : "en-US";
+
+      const voices = synth.getVoices();
+      const match = voices.find(v => v.lang === utter.lang || v.lang.startsWith(utter.lang.split("-")[0]));
+      if (match) utter.voice = match;
+
+      synth.cancel();
+      synth.speak(utter);
+    }
+
+    // Swap input/output language each time
+    voiceBtn.addEventListener("click", () => {
+      if (inputLang === "en-US") {
+        inputLang = "es-ES";
+        outputLang = "en";
+      } else {
+        inputLang = "en-US";
+        outputLang = "es";
+      }
+    });
   </script>
 </body>
 </html>
